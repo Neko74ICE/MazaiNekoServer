@@ -1,0 +1,9 @@
+name: NekoServer
+main: Mazai\Main
+version: 1.0
+api:
+ - 3.0.0-ALPHA11
+ - 3.0.0-ALPHA12
+load: POSTWORLD
+website: https://github.com/MazaiCrafty
+prefix: Mazai
