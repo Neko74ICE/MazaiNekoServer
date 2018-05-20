@@ -7,3 +7,7 @@ api:
 load: POSTWORLD
 website: https://github.com/MazaiCrafty
 prefix: Mazai
+commands:
+  test:
+    usage: "/test"
+    description: "Test command"
