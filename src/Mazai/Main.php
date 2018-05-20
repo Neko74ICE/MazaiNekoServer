@@ -3,9 +3,9 @@
 namespace Mazai;
 
 /**
- * The MIT License
- * Copyright (c) 2018 MazaiCrafty
- */
+* The MIT License
+* Copyright (c) 2018 MazaiCrafty
+*/
 
 use pocketmine\plugin\PluginBase;
 use pocketmine\Server;
@@ -43,8 +43,17 @@ class Main extends PluginBase implements Listener{
 
         $this->logo();
         $this->getLogger()->info("プラグインを有効にします...");
+
+        if(!file_exists($this->getDataFolder())){
+			$this->getLogger()->info("設定ファイルを生成します...");
+			@mkdir($this->getDataFolder() , 0777);
+			$this->saveResource("Config.yml");
+		}
     }
 
+    /**
+    * 遊び心でやてしもうた...
+    */
     public function logo(): void{
         $this->getLogger()->info(TF::GREEN . "
              JMm,  .+MN,\n
@@ -62,15 +71,20 @@ class Main extends PluginBase implements Listener{
     }
 
     public function onJoin(PlayerJoinEvent $event): void{
-        
+        $player = $event->getPlayer();
+        $lang = $player->getLocale();
+        switch ($lang){
+            case "ja_JP":
+            $player->sendMessage("さてはオメー日本語使いだな");
+            break;
+
+            case "en_US":
+            $player->sendMessage("You use English");
+            break;
+        }
     }
 
     public function onCommand(CommandSender $sender, Command $cmd, string $label, array $args): bool{
-        if (!$sender instanceof Player){
-            $sender->sendMessage("ゲーム内で実行してください");
-            return true;
-        }
-
         switch ($cmd->getName()){
             case "test":
             $test = new TestCommand($sender);
