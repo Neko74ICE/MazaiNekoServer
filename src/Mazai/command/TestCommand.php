@@ -9,7 +9,11 @@ namespace Mazai\command;
 
 use pocketmine\Player;
 
-class TestCommand{
+use Mazai\command\Command;
+
+class TestCommand implements Command{
+
+    private $sender;
 
     public function __construct(Player $sender){
         $this->sender = $sender;

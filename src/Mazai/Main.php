@@ -15,16 +15,25 @@ use pocketmine\event\Listener;
 use pocketmine\event\player\PlayerJoinEvent;
 use pocketmine\event\player\PlayerQuitEvent;
 use pocketmine\event\player\PlayerPreLoginEvent;
+use pocketmine\event\server\DataPacketReceiveEvent;
 
 use pocketmine\command\Command;
 use pocketmine\command\CommandSender;
+
+use pocketmine\network\mcpe\protocol\ModalFormResponsePacket;
 
 use pocketmine\utils\Config;
 use pocketmine\utils\TextFormat as TF;
 
 use Mazai\command\TestCommand;
+use Mazai\command\FriendCommand;
 
 use Mazai\event\Language;
+
+use Mazai\form\CustomForm;
+use Mazai\form\Form;
+use Mazai\form\ModalForm;
+use Mazai\form\SimpleForm;
 
 use jojoe77777\FormAPI\FormAPI;
 use onebone\economyapi\EconomyAPI;
@@ -37,6 +46,11 @@ class Main extends PluginBase implements Listener{
 
     /** @var $this */
     private static $instance;
+
+    /** @var int */
+    public $formCount = 0;
+    /** @var array */
+    public $forms = [];
 
     private $economy_api;
     private $form_api;
@@ -58,9 +72,10 @@ class Main extends PluginBase implements Listener{
             $this->saveResource("Config.yml");
         }
 
+        $this->formCount = rand(0, 0xFFFFFFFF);
+
         /** API */
         $this->economy_api = $this->getServer()->getPluginManager()->getPlugin("EconomyAPI");
-        $this->form_api = $this->getServer()->getPluginManager()->getPlugin("FormAPI");
     }
 
     /**
@@ -68,17 +83,32 @@ class Main extends PluginBase implements Listener{
     */
     public function logo(): void{
         $this->getLogger()->info(TF::GREEN . "
-             JMm,  .+MN,\n
-            .NNMN. dMNMN\n
-            ,MNNM[ MNNMF\n
-         .., WMNM! VMNM!.JNm.\n
-        (MNMk ?\"(..,-! .MMMM}\n
-        ,NNMM) dNNNMNp (NNNF\n
-         (HM`.MMMFTMNN,\"\"'\n
-            .gNMD`  -WMNN,\n
-          .MNNMF      (MMM}\n
-          .MMNMNJ-,    ,NF\n
-           TMNMMY\"    ,=
+        JMm,  .+MN,\n
+        .NNMN. dMNMN\n
+        ,MNNM[ MNNMF\n
+     .., WMNM! VMNM!.JNm.\n
+    (MNMk ?\"(..,-! .MMMM}\n
+    ,NNMM) dNNNMNp (NNNF\n
+     (HM`.MMMFTMNN,\"\"'\n
+        .gNMD`  -WMNN,\n
+      .MNNMF      (MMM}\n
+      .MMNMNJ-,    ,NF\n
+       TMNMMY\"    ,=
+        ".
+        "
+        _   _        _  _           _   _        _           _____                                    ___ ______ \n
+       | | | |      | || |         | \ | |      | |         /  ___|                                  |_  || ___ \ \n
+       | |_| |  ___ | || |  ___    |  \| |  ___ | | __ ___  \ `--.   ___  _ __ __   __ ___  _ __       | || |_/ /\n
+       |  _  | / _ \| || | / _ \   | . ` | / _ \| |/ // _ \  `--. \ / _ \| '__|\ \ / // _ \| '__|      | ||  __/ \n
+       | | | ||  __/| || || (_) |  | |\  ||  __/|   <| (_) |/\__/ /|  __/| |    \ V /|  __/| |     /\__/ /| |    \n
+       \_| |_/ \___||_||_| \___/   \_| \_/ \___||_|\_\\___/ \____/  \___||_|     \_/  \___||_|     \____/ \_|     \n
+        ".
+        "
+        ###########################################\n
+        #§eVERSION:§f ".self::VERSION."\n
+        #§eAPI:§f ".self::API."\n
+        #§eCODENAME:§f ".self::CODENAME."\n
+        ##########################################
         ");
     }
 
@@ -128,8 +158,15 @@ class Main extends PluginBase implements Listener{
 
     public function onQuit(PlayerQuitEvent $event): void{
         $player = $event->getPlayer();
-        $lang = Language::getLanguage($player);
 
+        foreach ($this->forms as $id => $form){
+            if($form->isRecipient($player)){
+                unset($this->forms[$id]);
+                break;
+            }
+        }
+
+        $lang = Language::getLanguage($player);
         foreach ($this->getServer()->getOnlinePlayers() as $players){
             $event->setQuitMessage("");
 
@@ -159,8 +196,71 @@ class Main extends PluginBase implements Listener{
             $test = new TestCommand($sender);
             $test->execute();
             return true;
+
+            case "friend":
+            $friend = new FriendCommand($sender);
+            $friend->execute();
+            return true;
         }
         return false;
+    }
+
+    /**
+    * @param callable $function
+    * @return CustomForm
+    */
+    public function createCustomForm(callable $function = null): CustomForm{
+        $this->formCountBump();
+        $form = new CustomForm($this->formCount, $function);
+        $this->forms[$this->formCount] = $form;
+        return $form;
+    }
+
+    public function createSimpleForm(callable $function = null): SimpleForm{
+        $this->formCountBump();
+        $form = new SimpleForm($this->formCount, $function);
+        $this->forms[$this->formCount] = $form;
+        return $form;
+    }
+
+    public function createModalForm(callable $function = null): ModalForm{
+        $this->formCountBump();
+        $form = new ModalForm($this->formCount, $function);
+        $this->forms[$this->formCount] = $form;
+        return $form;
+    }
+
+    public function formCountBump(): void{
+        ++$this->formCount;
+        if($this->formCount & (1 << 32)){
+            $this->formCount = rand(0, 0xFFFFFFFF);
+        }
+    }
+
+    /**
+     * @param DataPacketReceiveEvent $event
+     */
+    public function onPacketReceived(DataPacketReceiveEvent $event): void{
+        $pk = $event->getPacket();
+        if($pk instanceof ModalFormResponsePacket) {
+            $player = $event->getPlayer();
+            $formId = $pk->formId;
+            $data = json_decode($pk->formData, true);
+            if(isset($this->forms[$formId])) {
+                /** @var Form $form */
+                $form = $this->forms[$formId];
+                if(!$form->isRecipient($player)) {
+                    return;
+                }
+                $form->processData($data);
+                $callable = $form->getCallable();
+                if($callable !== null) {
+                    $callable($ev->getPlayer(), $data);
+                }
+                unset($this->forms[$formId]);
+                $event->setCancelled();
+            }
+        }
     }
 
     /**
@@ -168,13 +268,6 @@ class Main extends PluginBase implements Listener{
     */
     public function getEconomyAPI(): EconomyAPI{
         return $this->economy_api;
-    }
-
-    /**
-    * @return FormAPI 
-    */
-    public function getFormAPI(): FormAPI{
-        return $this->form_api;
     }
 
     /**
